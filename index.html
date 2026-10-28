@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Plan WAT - WLO25ZX3S1</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Plan WAT">
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: rgba(255, 255, 255, 0.05);
+      --card-border: rgba(255, 255, 255, 0.1);
+      --accent: #38bdf8;
+      --text: #f8fafc;
+      --subtext: #94a3b8;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom) 16px;
+    }
+    header {
+      padding: 24px 8px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+    .badge {
+      font-size: 11px;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+    .status-bar {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: var(--subtext);
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: #22c55e;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+    }
+    .btn-wat {
+      display: block;
+      width: 100%;
+      text-align: center;
+      background: var(--accent);
+      color: #0b0f19;
+      font-weight: 600;
+      text-decoration: none;
+      padding: 14px;
+      border-radius: 14px;
+      margin-bottom: 24px;
+      font-size: 15px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .card-title { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+    .card-meta { font-size: 13px; color: var(--subtext); }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Mój Plan Zajęć</h1>
+      <div style="color: var(--subtext); font-size: 13px; margin-top: 2px;">Grupa WLO25ZX3S1</div>
+    </div>
+    <span class="badge">WAT Zima</span>
+  </header>
+
+  <div class="status-bar">
+    <span><span class="status-dot"></span> Monitor zmian aktywny</span>
+    <span id="update-date">Ładowanie...</span>
+  </div>
+
+  <a class="btn-wat" href="https://wlo.wat.edu.pl/planzajec/zima/WLO25ZX3S1.htm" target="_blank">
+    Otwórz oficjalny plan WAT ↗
+  </a>
+
+  <div id="content">
+    <div class="card">
+      <div class="card-title">Synchronizacja...</div>
+      <div class="card-meta">Pobieranie ostatnich zmian z serwera uczelni.</div>
+    </div>
+  </div>
+
+  <script>
+    fetch('plan.json?t=' + new Date().getTime())
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('update-date').innerText = 'Stan: ' + (data.last_checked || 'Aktualny');
+        const container = document.getElementById('content');
+        if (data.status) {
+          container.innerHTML = `
+            <div class="card">
+              <div class="card-title">Status planu</div>
+              <div class="card-meta">${data.status}</div>
+            </div>
+          `;
+        }
+      })
+      .catch(() => {
+        document.getElementById('update-date').innerText = 'Tryb offline';
+      });
+  </script>
+</body>
+</html>
