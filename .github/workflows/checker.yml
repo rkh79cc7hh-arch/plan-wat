@@ -2,9 +2,8 @@ name: Monitor Planu WAT
 
 on:
   schedule:
-    # Uruchamiaj co 1 godzinę w ciągu dnia
     - cron: '0 6-20 * * *'
-  workflow_dispatch: # Pozwala odpalić ręcznie w każdej chwili
+  workflow_dispatch:
 
 jobs:
   check:
@@ -20,14 +19,14 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Instalacja narzędzi
-        run: pip install requests beautifulsoup4
+      - name: Instalacja narzedzi
+        run: pip install requests beautifulsoup4 lxml
 
-      - name: Sprawdź plan WAT
+      - name: Przetworz plan WAT
         run: |
           python - << 'EOF'
           import requests
-          import hashlib
+          from bs4 import BeautifulSoup
           import json
           import os
           from datetime import datetime
@@ -35,37 +34,35 @@ jobs:
           URL = "https://wlo.wat.edu.pl/planzajec/zima/WLO25ZX3S1.htm"
           resp = requests.get(URL, headers={"User-Agent": "Mozilla/5.0"})
           resp.encoding = 'iso-8859-2'
-          content = resp.text
+          soup = BeautifulSoup(resp.text, 'html.parser')
 
-          h = hashlib.sha256(content.encode('utf-8')).hexdigest()
-          changed = False
+          # Sprawdzenie tabeli
+          table = soup.find('table')
+          rows_data = []
 
-          if os.path.exists("hash.txt"):
-              with open("hash.txt") as f:
-                  if f.read().strip() != h:
-                      changed = True
-          else:
-              changed = True
-
-          with open("hash.txt", "w") as f:
-              f.write(h)
+          if table:
+              for tr in table.find_all('tr'):
+                  cells = [td.get_text(separator=" ", strip=True) for td in tr.find_all(['td', 'th'])]
+                  if any(cells):
+                      rows_data.append(cells)
 
           now = datetime.now().strftime("%d.%m.%Y %H:%M")
-          data = {
+
+          output = {
               "group": "WLO25ZX3S1",
               "last_checked": now,
-              "status": "Wykryto zmianę w planie na stronie WAT!" if changed else "Brak nowych zmian. Plan aktualny."
+              "table": rows_data
           }
 
           with open("plan.json", "w", encoding="utf-8") as f:
-              json.dump(data, f, ensure_ascii=False, indent=2)
+              json.dump(output, f, ensure_ascii=False, indent=2)
 
-          print(f"Status: {data['status']}")
+          print(f"Pobrano {len(rows_data)} wierszy planu.")
           EOF
 
       - name: Zapisz stan w repozytorium
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add hash.txt plan.json
-          git diff --staged --quiet || (git commit -m "Auto: aktualizacja stanu planu" && git push)
+          git add plan.json
+          git diff --staged --quiet || (git commit -m "Auto: aktualizacja bazy planu" && git push)
