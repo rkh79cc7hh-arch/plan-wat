@@ -3,133 +3,125 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Plan WAT</title>
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Plan WAT - WLO25ZX3S1</title>
   <style>
     :root {
-      --bg: #0b0f19;
-      --card-bg: rgba(255, 255, 255, 0.05);
-      --card-border: rgba(255, 255, 255, 0.1);
-      --accent: #38bdf8;
+      --bg: #0f172a;
+      --card-bg: rgba(30, 41, 59, 0.7);
+      --border: rgba(255, 255, 255, 0.1);
       --text: #f8fafc;
-      --subtext: #94a3b8;
+      --accent: #38bdf8;
+      --sub: #94a3b8;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body {
       margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--bg);
       color: var(--text);
-      padding: env(safe-area-inset-top) 16px 40px 16px;
+      min-height: 100vh;
     }
     header {
-      padding: 20px 4px 12px;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    h1 {
+      margin: 0;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .status {
+      font-size: 0.8rem;
+      color: var(--sub);
+      margin-top: 4px;
+    }
+    .grid {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
+      flex-direction: column;
+      gap: 12px;
     }
-    h1 { margin: 0; font-size: 24px; font-weight: 700; }
-    .status-bar {
+    .card {
       background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 12px;
-      padding: 10px 14px;
-      margin-bottom: 16px;
-      display: flex;
-      justify-content: space-between;
-      font-size: 13px;
-      color: var(--subtext);
-    }
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      background: #22c55e;
-      border-radius: 50%;
-      display: inline-block;
-      margin-right: 6px;
-    }
-    .class-card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-left: 4px solid var(--accent);
+      border: 1px solid var(--border);
       border-radius: 12px;
       padding: 14px;
-      margin-bottom: 10px;
+      backdrop-filter: blur(10px);
     }
-    .class-text {
-      font-size: 15px;
+    .card-title {
+      font-weight: 600;
+      font-size: 1rem;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+    .card-meta {
+      font-size: 0.85rem;
+      color: var(--sub);
       line-height: 1.4;
-      font-weight: 500;
     }
-    .loader {
-      text-align: center;
-      padding: 40px;
-      color: var(--subtext);
-    }
-    .btn-wat {
+    .btn-orig {
       display: block;
       width: 100%;
       text-align: center;
-      background: rgba(56, 189, 248, 0.1);
-      color: var(--accent);
-      border: 1px solid var(--card-border);
-      font-weight: 600;
-      text-decoration: none;
       padding: 12px;
-      border-radius: 12px;
       margin-top: 20px;
-      font-size: 14px;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      border-radius: 10px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.9rem;
     }
   </style>
 </head>
 <body>
+
   <header>
-    <div>
-      <h1>Twój Plan Zajęć</h1>
-      <div style="color: var(--subtext); font-size: 13px; margin-top: 2px;">WAT • WLO25ZX3S1</div>
-    </div>
+    <h1>WLO25ZX3S1 • WAT</h1>
+    <div class="status" id="status">Wczytywanie planu...</div>
   </header>
 
-  <div class="status-bar">
-    <span><span class="status-dot"></span> Aktywny</span>
-    <span id="last-update">Sprawdzanie...</span>
-  </div>
+  <div class="grid" id="plan-container"></div>
 
-  <div id="schedule-container">
-    <div class="loader">Ładowanie Twoich zajęć...</div>
-  </div>
-
-  <a class="btn-wat" href="https://wlo.wat.edu.pl/planzajec/zima/WLO25ZX3S1.htm" target="_blank">
-    Otwórz oryginalną tabelę WAT ↗
-  </a>
+  <a class="btn-orig" href="./plan.htm" target="_blank">Otwórz pełną oryginalną siatkę WAT ↗</a>
 
   <script>
-    fetch('plan.json?t=' + new Date().getTime())
-      .then(res => res.json())
-      .then(data => {
-        document.getElementById('last-update').innerText = data.last_checked || 'Aktualny';
-        const container = document.getElementById('schedule-container');
-        container.innerHTML = '';
+    fetch('./plan.htm')
+      .then(r => {
+        if (!r.ok) throw new Error();
+        return r.arrayBuffer();
+      })
+      .then(buffer => {
+        // Dekodowanie kodowania stron WAT (windows-1250 lub iso-8859-2)
+        const decoder = new TextDecoder('windows-1250');
+        const html = decoder.decode(buffer);
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
 
-        if (!data.table || data.table.length === 0) {
-          container.innerHTML = '<div class="loader">Brak danych w planie.</div>';
-          return;
-        }
+        const container = document.getElementById('plan-container');
+        const rows = doc.querySelectorAll('tr');
+        let count = 0;
 
-        // Renderujemy wiersze z planu
-        data.table.forEach(row => {
-          const content = row.join(' • ');
-          if (content.length > 3) {
+        rows.forEach(row => {
+          const text = row.innerText.trim().replace(/\s+/g, ' ');
+          if (text.length > 5 && !text.includes('Incapsula')) {
             const card = document.createElement('div');
-            card.className = 'class-card';
-            card.innerHTML = `<div class="class-text">${content}</div>`;
+            card.className = 'card';
+            card.innerHTML = `<div class="card-meta">${text}</div>`;
             container.appendChild(card);
+            count++;
           }
         });
+
+        document.getElementById('status').innerText = count > 0 
+          ? `Plan załadowany pomyślnie (${count} wpisów)`
+          : 'Plan załadowany (brak bezpośrednich wierszy w tabeli)';
       })
-      .catch(err => {
-        document.getElementById('schedule-container').innerHTML = '<div class="loader">Błąd wczytywania planu.</div>';
+      .catch(() => {
+        document.getElementById('status').innerText = 'Dodaj plik plan.htm do repozytorium.';
       });
   </script>
 </body>
