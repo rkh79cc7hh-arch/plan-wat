@@ -49,17 +49,14 @@
       border-radius: 12px;
       padding: 14px;
       backdrop-filter: blur(10px);
+      white-space: pre-wrap;
+      line-height: 1.5;
+      font-size: 0.95rem;
     }
-    .card-title {
+    .highlight {
+      color: var(--accent);
       font-weight: 600;
-      font-size: 1rem;
-      color: #fff;
-      margin-bottom: 6px;
-    }
-    .card-meta {
-      font-size: 0.85rem;
-      color: var(--sub);
-      line-height: 1.4;
+      margin-bottom: 4px;
     }
     .btn-orig {
       display: block;
@@ -86,42 +83,61 @@
 
   <div class="grid" id="plan-container"></div>
 
-  <a class="btn-orig" href="./plan.htm" target="_blank">Otwórz pełną oryginalną siatkę WAT ↗</a>
+  <a class="btn-orig" href="./plan.htm" target="_blank">Otwórz pełny plik źródłowy ↗</a>
 
   <script>
-    fetch('./plan.htm')
+    fetch('./plan.htm?v=' + Date.now())
       .then(r => {
         if (!r.ok) throw new Error();
         return r.arrayBuffer();
       })
       .then(buffer => {
-        // Dekodowanie kodowania stron WAT (windows-1250 lub iso-8859-2)
-        const decoder = new TextDecoder('windows-1250');
-        const html = decoder.decode(buffer);
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
+        // Dekodowanie znaków polskich
+        let text = new TextDecoder('windows-1250').decode(buffer);
+        if (text.includes('')) {
+          text = new TextDecoder('utf-8').decode(buffer);
+        }
 
         const container = document.getElementById('plan-container');
-        const rows = doc.querySelectorAll('tr');
-        let count = 0;
+        
+        // Podział na linie tekstu
+        const rawLines = text.split(/\r?\n/)
+          .map(l => l.replace(/\u00a0/g, ' ').trim())
+          .filter(l => l.length > 0);
 
-        rows.forEach(row => {
-          const text = row.innerText.trim().replace(/\s+/g, ' ');
-          if (text.length > 5 && !text.includes('Incapsula')) {
+        // Grupowanie linii w czytelne bloki
+        let blocks = [];
+        let currentBlock = [];
+
+        for (const line of rawLines) {
+          // Jeśli trafiamy na godziny (np. 1-2, 3-4, 5-6, 7-8) lub nowy przedmiot, rozpoczynamy nowy blok
+          if (/^\d-\d$/.test(line) || /^[A-Z][a-ząćęłńóśźż\s]{4,}/.test(line)) {
+            if (currentBlock.length > 0) {
+              blocks.push(currentBlock);
+              currentBlock = [];
+            }
+          }
+          currentBlock.push(line);
+        }
+        if (currentBlock.length > 0) blocks.push(currentBlock);
+
+        // Wyświetlanie kafelków
+        let count = 0;
+        blocks.forEach(blk => {
+          const content = blk.join('\n');
+          if (content.length > 3) {
             const card = document.createElement('div');
             card.className = 'card';
-            card.innerHTML = `<div class="card-meta">${text}</div>`;
+            card.innerHTML = `<div class="highlight">${blk[0]}</div>` + blk.slice(1).join('<br>');
             container.appendChild(card);
             count++;
           }
         });
 
-        document.getElementById('status').innerText = count > 0 
-          ? `Plan załadowany pomyślnie (${count} wpisów)`
-          : 'Plan załadowany (brak bezpośrednich wierszy w tabeli)';
+        document.getElementById('status').innerText = `Załadowano pozycje planu (${count})`;
       })
       .catch(() => {
-        document.getElementById('status').innerText = 'Dodaj plik plan.htm do repozytorium.';
+        document.getElementById('status').innerText = 'Błąd wczytywania pliku plan.htm';
       });
   </script>
 </body>
