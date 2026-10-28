@@ -19,51 +19,57 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Instalacja narzedzi
-        run: pip install requests beautifulsoup4 lxml
+      - name: Instalacja Playwright i zaleznosci
+        run: |
+          pip install playwright beautifulsoup4
+          playwright install --with-deps chromium
 
-      - name: Przetworz plan WAT
+      - name: Pobierz plan WAT ze wszystkich ramek
         run: |
           python - << 'EOF'
-          import requests
+          from playwright.sync_api import sync_playwright
           from bs4 import BeautifulSoup
           import json
           from datetime import datetime
+          import time
 
           URL = "https://wlo.wat.edu.pl/planzajec/zima/WLO25ZX3S1.htm"
-          
-          session = requests.Session()
-          headers = {
-              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-              "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-              "Accept-Language": "pl-PL,pl;q=0.9,en-US;q=0.8,en;q=0.7",
-              "Cache-Control": "no-cache",
-              "Pragma": "no-cache",
-              "Sec-Ch-Ua": '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
-              "Sec-Ch-Ua-Mobile": "?0",
-              "Sec-Ch-Ua-Platform": '"Windows"',
-              "Sec-Fetch-Dest": "document",
-              "Sec-Fetch-Mode": "navigate",
-              "Sec-Fetch-Site": "none",
-              "Sec-Fetch-User": "?1",
-              "Upgrade-Insecure-Requests": "1"
-          }
-
-          resp = session.get(URL, headers=headers, timeout=20)
-          resp.encoding = 'iso-8859-2'
-          soup = BeautifulSoup(resp.text, 'html.parser')
 
           rows_data = []
 
-          # Parsowanie tabeli
-          for tr in soup.find_all('tr'):
-              cells = [td.get_text(" ", strip=True) for td in tr.find_all(['td', 'th'])]
-              clean_cells = [c for c in cells if c]
-              if clean_cells:
-                  rows_data.append(clean_cells)
+          with sync_playwright() as p:
+              browser = p.chromium.launch(headless=True)
+              page = browser.new_page(
+                  user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+              )
+              
+              page.goto(URL, wait_until="networkidle", timeout=60000)
+              time.sleep(4)
 
-          # Filtrowanie ewentualnych komunikatów Incapsula
-          rows_data = [r for r in rows_data if "Incapsula" not in " ".join(r)]
+              # Sprawdz glowna strone oraz wszystkie ramki (iframe/frame)
+              frames = [page.main_frame] + page.frames
+
+              for frame in frames:
+                  try:
+                      content = frame.content()
+                      soup = BeautifulSoup(content, 'html.parser')
+                      for tr in soup.find_all('tr'):
+                          cells = [td.get_text(" ", strip=True) for td in tr.find_all(['td', 'th'])]
+                          clean = [c for c in cells if c]
+                          if clean and "Incapsula" not in " ".join(clean):
+                              rows_data.append(clean)
+                  except Exception as e:
+                      pass
+
+              # Jesli nie ma tr, zbierzmy widoczne linie tekstu ze strony
+              if not rows_data:
+                  text_content = page.inner_text("body")
+                  lines = [line.strip() for line in text_content.split("\n") if len(line.strip()) > 3]
+                  for line in lines:
+                      if "Incapsula" not in line:
+                          rows_data.append([line])
+
+              browser.close()
 
           now = datetime.now().strftime("%d.%m.%Y %H:%M")
 
@@ -76,7 +82,7 @@ jobs:
           with open("plan.json", "w", encoding="utf-8") as f:
               json.dump(output, f, ensure_ascii=False, indent=2)
 
-          print(f"Pobrano wierszy: {len(rows_data)}")
+          print(f"Liczba pobranych pozycji: {len(rows_data)}")
           EOF
 
       - name: Zapisz stan w repozytorium
